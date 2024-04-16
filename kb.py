@@ -44,7 +44,7 @@ types_kb = [
     ],
     [
         InlineKeyboardButton(text="🔙 Назад", callback_data="sending_files"),
-        InlineKeyboardButton(text="🔚 Главное меню", callback_data="main_menu"),
+        InlineKeyboardButton(text="🏠 Главное меню", callback_data="main_menu"),
     ],
 ]
 

@@ -10,6 +10,7 @@ env = Env()
 env.read_env()  #'../.env', recurse=False)
 
 item_type = "unknown_device"
+tes_path = env("TES_PATH")
 
 item_templates = {
     "gas_analyser": "Название устройства,\
@@ -56,7 +57,10 @@ item_templates = {
 }
 
 
-def extract_text_from_pdf(pdf_path):
+def extract_text_from_pdf(pdf_path: str):
+    """
+    Extract text from pdf
+    """
     with pdfplumber.open(pdf_path) as pdf:
         text = ""
         for page in pdf.pages:
@@ -65,7 +69,10 @@ def extract_text_from_pdf(pdf_path):
 
 
 # extract tables
-def extract_tables_from_pdf(pdf_path):
+def extract_tables_from_pdf(pdf_path: str):
+    """
+    Extract tables from pdf
+    """
     with pdfplumber.open(pdf_path) as pdf:
         tables = []
         for page in pdf.pages:
@@ -76,14 +83,20 @@ def extract_tables_from_pdf(pdf_path):
 
 
 def get_llm_chat():
+    """
+    Create a chat with LLM
+    """
     llm = GigaChat(credentials=env("GIGA_TOKEN"), verify_ssl_certs=False)
     return llm
 
 
 async def pdf2json_llm(text, item_type, llm):
+    """
+    Send text to LLM and get json
+    """
     print(text[:1000])
     if item_type == "unknown_device":
-        input_query = f"Тебе дан текст с техническими характеристиками изделия. Сформируй из него json file, максимально емко описывающий изделие. предварительно переведя все ключи словаря на английский.Значения в словаре должны быть на русском. Выбери только самую важную информацию: Не описывай всё подряд.  "
+        input_query = f"Тебе дан текст с техническими характеристиками изделия. Сформируй из него json file, максимально емко описывающий изделие. Выбери только самую важную информацию. примерно 50% от всех характеристик."
     # input_query = f'Из документа каждую характеристику отдельно: Технические характеристики {class_name}'
     else:
         input_query = (
