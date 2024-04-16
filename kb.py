@@ -14,36 +14,32 @@ main_kb = [
             text="📃 Отправить паспорт изделия", callback_data="sending_files"
         )
     ],
-    [InlineKeyboardButton(text="📊 Инфо о боте", callback_data="bot_info")],
+    [InlineKeyboardButton(text="💡 Инфо о боте", callback_data="bot_info")],
 ]
 main_kb = InlineKeyboardMarkup(inline_keyboard=main_kb)
 
 
 sending_files_kb = [
     [InlineKeyboardButton(text="🔩 Выбрать тип изделия", callback_data="types_pick")],
-    [
-        InlineKeyboardButton(
-            text=" Спарсить паспорт без указания типа", callback_data="parse_all"
-        )
-    ],
+    [InlineKeyboardButton(text="📄 Спарсить весь документ", callback_data="parse_all")],
 ]
 
 sending_files_kb = InlineKeyboardMarkup(inline_keyboard=sending_files_kb)
 
 
 types_kb = [
-    [InlineKeyboardButton(text="Газоанализатор", callback_data="gas_analyser")],
-    [InlineKeyboardButton(text="Детектор газов", callback_data="gas_detector")],
+    [InlineKeyboardButton(text="🔬Газоанализатор", callback_data="gas_analyser")],
+    [InlineKeyboardButton(text="♨️Детектор газов", callback_data="gas_detector")],
     [
         InlineKeyboardButton(
-            text="Расходомер/счётчик газа", callback_data="gas_flowmeter"
+            text="📉 Расходомер/счётчик газа", callback_data="gas_flowmeter"
         )
     ],
-    [InlineKeyboardButton(text="Указатель уровня", callback_data="level_indicator")],
-    [InlineKeyboardButton(text="Сигнализатор уровня", callback_data="level_switch")],
+    [InlineKeyboardButton(text="🛀Указатель уровня", callback_data="level_indicator")],
+    [InlineKeyboardButton(text="🛁Сигнализатор уровня", callback_data="level_switch")],
     [
         InlineKeyboardButton(
-            text="Неизвестное устройство", callback_data="unknown_device"
+            text="❓Неизвестное устройство", callback_data="unknown_device"
         )
     ],
     [

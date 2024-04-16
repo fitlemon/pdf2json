@@ -100,6 +100,13 @@ async def events_by_spec_genre(clbck: CallbackQuery, state: FSMContext):
     await clbck.message.answer(text.wait_doc, reply_markup=kb.menu_kb)
 
 
+@router.callback_query(F.data.contains("parse_all"))
+async def events_by_spec_genre(clbck: CallbackQuery, state: FSMContext):
+    utils.item_type = "unknown_device"
+    await state.set_state(Gen.wait_doc)
+    await clbck.message.answer(text.wait_doc, reply_markup=kb.menu_kb)
+
+
 @router.message(Gen.wait_doc)
 @router.message(F.content_type == "document")
 async def load_files(msg: Message, state: FSMContext, bot):
@@ -118,7 +125,9 @@ async def load_files(msg: Message, state: FSMContext, bot):
         with open(file_name, "wb") as f:
             f.write(file.read())
         # send file to user
-        await msg.reply("Файл принят. Пожалуйста, подождите...")
+        await msg.reply(
+            "Файл принят. Пожалуйста, подождите...", reply_markup=kb.menu_kb
+        )
         # extract text from pdf
         text = utils.extract_text_from_pdf(file_name)
         # send text to user
