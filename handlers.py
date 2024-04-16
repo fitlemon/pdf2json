@@ -144,7 +144,7 @@ async def load_files(msg: Message, state: FSMContext, bot):
     """
     Bot actions for loading files
     """
-    if msg.document:
+    if msg.content_type == "document":
         file_id = msg.document.file_id
         file_info = await bot.get_file(file_id)
         file_path = file_info.file_path
@@ -159,23 +159,33 @@ async def load_files(msg: Message, state: FSMContext, bot):
         with open(file_name, "wb") as f:
             f.write(file.read())
         # send file to user
-        await msg.reply(
-            "Файл принят. Пожалуйста, подождите...", reply_markup=kb.menu_kb
-        )
+
         # extract text from pdf
         # check if file is pdf
         if file_name.endswith(".pdf"):
             text = utils.extract_text_from_pdf(file_name)
             if len(text) < 100:
+                await msg.reply(
+                    "Файл принят. Это PDF с НЕраспознанным текстом. Попробуем распознать текст с помощью магии 🎇. Пожалуйста, подождите ответа нейронной сети ✨...Если текст не распознается, попробуйте отправить фото документа в формате jpg, png...Например, сделав скриншот.",
+                    reply_markup=kb.menu_kb,
+                )
                 print("its PDF not recognized")
                 imgs = ocr.pdf_to_img(file_name)
                 text = ""
                 for img in imgs:
                     text += ocr.img_to_text(img, utils.tes_path)
             else:
+                await msg.reply(
+                    "Файл принят. Это PDF с распознанный текстом. Пожалуйста, подождите ответа нейронной сети ✨...",
+                    reply_markup=kb.menu_kb,
+                )
                 text = text
         elif file_name.endswith(".jpg") or file_name.endswith(".png"):
             print("its IMG not recognized")
+            await msg.reply(
+                "Файл принят. Это картинка с НЕраспознанный текстом. Попробуем распознать текст с помощью магии 🎇. Пожалуйста, подождите ответа нейронной сети ✨...",
+                reply_markup=kb.menu_kb,
+            )
             text = ocr.img_to_text(file_name, utils.tes_path)
         else:
             await msg.reply(
@@ -183,20 +193,37 @@ async def load_files(msg: Message, state: FSMContext, bot):
                 reply_markup=kb.menu_kb,
             )
             return None
-        llm = utils.get_llm_chat()
-        # send text to llm
-        item_type = utils.item_type
-        json_text = await utils.pdf2json_llm(text, item_type, llm)
-        # send json to user
-        print(json_text)
+    elif msg.content_type == "photo":
+        file_name = os.path.join("docs", f"{msg.photo[-1].file_id}.jpg")
+        await bot.download(msg.photo[-1], destination=file_name)
+        print("its IMG not recognized")
         await msg.reply(
-            "```json\n" + json_text + "\n```",
-            parse_mode="Markdown",
+            "Файл принят. Это картинка с НЕраспознанный текстом. Попробуем распознать текст с помощью магии 🎇. Пожалуйста, подождите ответа нейронной сети ✨...",
             reply_markup=kb.menu_kb,
         )
-
+        text = ocr.img_to_text(file_name, utils.tes_path)
     else:
         await msg.reply(
-            "Я принимаю только магические документы...Фотографии отправляйте в виде вложенного документа без сжатия.",
+            "Я принимаю только магические документы в формате pdf, jpg, png....",
             reply_markup=kb.menu_kb,
         )
+        return None
+    llm = utils.get_llm_chat()
+    # send text to llm
+    item_type = utils.item_type
+    json_text = await utils.pdf2json_llm(text, item_type, llm)
+    # send json to user
+    print(json_text)
+    await msg.reply(
+        "```json\n" + json_text + "\n```",
+        parse_mode="Markdown",
+        reply_markup=kb.menu_kb,
+    )
+
+
+@router.callback_query(F.data.contains("bot_info"))
+async def events_by_spec_genre(clbck: CallbackQuery, state: FSMContext):
+    """
+    Bot actions for parse_all
+    """
+    await clbck.message.answer(text.bot_info, reply_markup=kb.menu_kb)
