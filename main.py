@@ -15,7 +15,7 @@ env.read_env()  #'../.env', recurse=False)
 
 
 async def main():
-    bot = Bot(token=env("2BOT_TOKEN"), parse_mode=ParseMode.HTML)
+    bot = Bot(token=env("BOT_TOKEN"), parse_mode=ParseMode.HTML)
     # emb_model = model.init_model()
     dp = Dispatcher(storage=MemoryStorage())
     dp.include_router(router)
