@@ -108,3 +108,17 @@ async def pdf2json_llm(text, item_type, llm):
     ]
     answer = await llm.ainvoke(messages)
     return answer.content
+
+
+async def compare_jsons(json1, json2, llm):
+    """
+    Compare two jsons
+    """
+    system_query = """Сравни и выпиши отличия Значений в виде json в формате: {"параметры для сравнения": [названия параметров], "json1": [значения в json1], "json2": [значения в json2]}. Внизу также приведи краткий вывод:"""
+    json_query = f'{{"json1": {json1}, "json2": {json2}}}'
+    messages = [
+        SystemMessage(content=system_query),
+        HumanMessage(content=json_query),
+    ]
+    answer = await llm.ainvoke(messages)
+    return answer.content

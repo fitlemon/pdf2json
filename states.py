@@ -6,3 +6,5 @@ class Gen(StatesGroup):
     sending_files = State()
     types_pick = State()
     wait_doc = State()
+    compare_docs = State()
+    wait_2nd_doc = State()
