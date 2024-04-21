@@ -1,16 +1,23 @@
 import pdfplumber
 import os
 from langchain.chat_models.gigachat import GigaChat
+from langchain.text_splitter import CharacterTextSplitter
 
 # import SystemMessage, HumanMessage
 from langchain_core.messages import SystemMessage, HumanMessage
 from environs import Env
+from langchain.vectorstores.faiss import FAISS
+from langchain.chains import ConversationalRetrievalChain
+from langchain_openai import ChatOpenAI
+from langchain.memory import ConversationBufferMemory
+from langchain_community.embeddings import HuggingFaceInferenceAPIEmbeddings
 
 env = Env()
 env.read_env()  #'../.env', recurse=False)
 
 item_type = "unknown_device"
 tes_path = env("TES_PATH")
+user_vectorstores = {}
 
 item_templates = {
     "gas_analyser": "Название устройства,\
@@ -86,7 +93,7 @@ def get_llm_chat():
     """
     Create a chat with LLM
     """
-    llm = GigaChat(credentials=env("GIGA_TOKEN"), verify_ssl_certs=False)
+    llm = GigaChat(credentials=env.str("GIGA_TOKEN"), verify_ssl_certs=False)
     return llm
 
 
@@ -114,7 +121,7 @@ async def compare_jsons(json1, json2, llm):
     """
     Compare two jsons
     """
-    system_query = """Сравни и выпиши отличия Значений в виде json в формате: {"параметры для сравнения": [названия параметров], "json1": [значения в json1], "json2": [значения в json2]}. Внизу также приведи краткий вывод:"""
+    system_query = """Сравни и выпиши отличия Значений в виде json в формате: {"параметры для сравнения": [названия параметров в виде python list], "json1": [значения параметров в json1 в виде python list], "json2": [значения параметров в json2 в виде python list]}:"""
     json_query = f'{{"json1": {json1}, "json2": {json2}}}'
     messages = [
         SystemMessage(content=system_query),
@@ -122,3 +129,57 @@ async def compare_jsons(json1, json2, llm):
     ]
     answer = await llm.ainvoke(messages)
     return answer.content
+
+
+async def compare_jsons_conclusion(json1, json2, llm):
+    """
+    Compare two jsons
+    """
+    system_query = (
+        """Сравни два json файла и напиши, в чем их различия в выводах по пунктам."""
+    )
+    json_query = f'{{"json1": {json1}, "json2": {json2}}}'
+    messages = [
+        SystemMessage(content=system_query),
+        HumanMessage(content=json_query),
+    ]
+    answer = await llm.ainvoke(messages)
+    return answer.content
+
+
+async def get_text_chunks(text):
+    text_splitter = CharacterTextSplitter(
+        separator="\n", chunk_size=1000, chunk_overlap=200, length_function=len
+    )
+    chunks = text_splitter.split_text(text)
+    return chunks
+
+
+async def get_vectorstore(text_chunks, user_id):
+    # sembeddings = OpenAIEmbeddings()
+    embeddings = HuggingFaceInferenceAPIEmbeddings(
+        api_key=env.str("HUGGINGFACEHUB_API_TOKEN"),
+        model_name="intfloat/multilingual-e5-large",
+    )
+    vectorstore = FAISS.from_texts(texts=text_chunks, embedding=embeddings)
+    user_vectorstores[user_id] = vectorstore
+    return vectorstore
+
+
+async def get_conversation_chain(vectorstore):
+    # llm = ChatOpenAI(api_key=env.str("OPENAI_API_KEY"))
+    llm = GigaChat(credentials=env.str("GIGA_TOKEN"), verify_ssl_certs=False)
+    # llm = HuggingFaceHub(
+    #     repo_id="google/flan-t5-xxl",
+    #     model_kwargs={"temperature": 0.5, "max_length": 512},
+    # )
+    memory = ConversationBufferMemory(memory_key="chat_history", return_messages=True)
+    conversation_chain = ConversationalRetrievalChain.from_llm(
+        llm=llm, retriever=vectorstore.as_retriever(), memory=memory
+    )
+    return conversation_chain
+
+
+async def get_response(conversation_chain, user_query):
+    response = conversation_chain({"question": user_query})
+    return response

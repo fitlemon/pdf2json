@@ -22,6 +22,7 @@ from aiogram.types import (
 )
 import os
 import ocr
+from aiogram.types import ContentType
 
 # import utils
 from states import Gen
@@ -167,13 +168,16 @@ async def events_by_spec_genre(clbck: CallbackQuery, state: FSMContext):
     await clbck.message.answer(reply, reply_markup=kb.menu_kb)
 
 
-@router.message(F.content_type == "document")
+@router.message(
+    (F.content_type == ContentType.DOCUMENT) | (F.content_type == ContentType.PHOTO)
+)
 async def handle_files(msg: Message, state: FSMContext, bot):
     """
     Bot actions for loading files
     """
+    print("handle_files")
     state_ = await state.get_state()
-    if state_ not in [Gen.wait_doc, Gen.compare_docs, Gen.wait_2nd_doc]:
+    if state_ not in [Gen.wait_doc, Gen.compare_docs, Gen.wait_2nd_doc, Gen.chat_pdf]:
         await msg.reply(
             "Выберите сначала раздел....",
             reply_markup=kb.menu_kb,
@@ -244,6 +248,12 @@ async def handle_files(msg: Message, state: FSMContext, bot):
                 reply_markup=kb.menu_kb,
             )
             return None
+        if state_ == Gen.chat_pdf:
+            chunks = await utils.get_text_chunks(text)
+            vectorstore = await utils.get_vectorstore(chunks, str(msg.from_user.id))
+            await msg.reply(texts.wait_chat_pdf, reply_markup=kb.menu_kb)
+            await state.set_state(Gen.wait_chat_pdf)
+            return None
         llm = utils.get_llm_chat()
         # send text to llm
         item_type = utils.item_type
@@ -258,12 +268,13 @@ async def handle_files(msg: Message, state: FSMContext, bot):
             parse_mode="Markdown",
             reply_markup=kb.menu_kb,
         )
-        json_table = tabulate.tabulate(json_dict.items(), tablefmt="grid")
-        await msg.reply(
-            f"```markdown\n{json_table}\n```",
-            parse_mode="Markdown",
-            reply_markup=kb.menu_kb,
-        )
+        if utils.item_type != "unknown_device":
+            json_table = tabulate.tabulate(json_dict.items(), tablefmt="grid")
+            await msg.reply(
+                f"```markdown\n{json_table}\n```",
+                parse_mode="Markdown",
+                reply_markup=kb.menu_kb,
+            )
 
         if state_ == Gen.compare_docs:
             with open(f"docs/{msg.from_user.id}_1.json", "w", encoding="utf-8") as f:
@@ -288,6 +299,9 @@ async def handle_files(msg: Message, state: FSMContext, bot):
             with open(f"docs/{msg.from_user.id}_2.json", "r", encoding="utf-8") as f:
                 json2 = json.load(f)
             diff_json = await utils.compare_jsons(str(json1), str(json2), llm)
+            conclusion = await utils.compare_jsons_conclusion(
+                str(json1), str(json2), llm
+            )
             # read diff json
             diff = json_repair.repair_json(diff_json, return_objects=True)
             diff = json.dumps(diff, ensure_ascii=False, indent=4)
@@ -304,12 +318,17 @@ async def handle_files(msg: Message, state: FSMContext, bot):
                 parse_mode="Markdown",
                 reply_markup=kb.compare_menu_kb,
             )
+            await msg.reply(
+                f"```\n{conclusion}\n```",
+                parse_mode="Markdown",
+                reply_markup=kb.compare_menu_kb,
+            )
 
 
 @router.callback_query(F.data.contains("bot_info"))
 async def bot_info(clbck: CallbackQuery, state: FSMContext):
     """
-    Bot actions for parse_all
+    Bot actions for bot_info
     """
     await clbck.message.answer(texts.bot_info, reply_markup=kb.menu_kb)
 
@@ -326,7 +345,7 @@ async def compare_docs(clbck: CallbackQuery, state: FSMContext):
 @router.callback_query(F.data.contains("compare_again"))
 async def events_by_spec_genre(clbck: CallbackQuery, state: FSMContext):
     """
-    Bot actions for compare_docs
+    Bot actions for compare_again
     """
     llm = utils.get_llm_chat()
     print(f"clbck.message.chat.id: {clbck.message.chat.id}")
@@ -335,6 +354,7 @@ async def events_by_spec_genre(clbck: CallbackQuery, state: FSMContext):
     with open(f"docs/{clbck.message.chat.id}_2.json", "r", encoding="utf-8") as f:
         json2 = json.load(f)
     diff_json = await utils.compare_jsons(str(json1), str(json2), llm)
+    conclusion = await utils.compare_jsons_conclusion(str(json1), str(json2), llm)
     # read diff json
     diff = json_repair.repair_json(diff_json, return_objects=True)
     diff = json.dumps(diff, ensure_ascii=False, indent=4)
@@ -351,3 +371,41 @@ async def events_by_spec_genre(clbck: CallbackQuery, state: FSMContext):
         parse_mode="Markdown",
         reply_markup=kb.compare_menu_kb,
     )
+    await clbck.message.reply(
+        f"```\n{conclusion}\n```",
+        parse_mode="Markdown",
+        reply_markup=kb.compare_menu_kb,
+    )
+
+
+@router.callback_query(F.data.contains("chat_pdf"))
+async def chat_with_pdf(clbck: CallbackQuery, state: FSMContext):
+    """
+    Bot actions for chat_pdf
+    """
+    await state.set_state(Gen.chat_pdf)
+    await clbck.message.answer(texts.chat_pdf, reply_markup=kb.menu_kb)
+
+
+@router.message(F.content_type == ContentType.TEXT)
+async def handle_text_messages(msg: Message, state: FSMContext, bot):
+    """
+    Bot actions for text messages
+    """
+    state_ = await state.get_state()
+    if state_ == Gen.wait_chat_pdf:
+        vectorstore = utils.user_vectorstores.get(str(msg.from_user.id))
+        if vectorstore is None:
+            await msg.reply(
+                "Вы не отправляли документ для обработки. Пожалуйста, отправьте документ для обработки, чтобы продолжить...",
+                reply_markup=kb.menu_kb,
+            )
+            return None
+        llm = await utils.get_conversation_chain(vectorstore)
+        answer = await llm.ainvoke(msg.text)
+        await msg.reply(answer.get("answer"), reply_markup=kb.menu_kb)
+    else:
+        await msg.reply(
+            "Выберите сначала раздел....",
+            reply_markup=kb.menu_kb,
+        )

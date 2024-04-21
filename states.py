@@ -8,3 +8,5 @@ class Gen(StatesGroup):
     wait_doc = State()
     compare_docs = State()
     wait_2nd_doc = State()
+    chat_pdf = State()
+    wait_chat_pdf = State()
