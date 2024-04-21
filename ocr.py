@@ -3,6 +3,7 @@ import pytesseract
 import cv2
 import os
 from transliterate import translit
+import os
 
 
 # вспомогательная функция-конвертор из pdf в png
@@ -31,7 +32,8 @@ def pdf_to_img(pdf_path):
 # вспомогательная функция распознание текста
 def img_to_text(img_path, tes_path):
     img = cv2.imread(img_path)
-    pytesseract.pytesseract.tesseract_cmd = tes_path
+    if os.name=='nt':
+        pytesseract.pytesseract.tesseract_cmd = tes_path
     text = pytesseract.image_to_string(img, lang="rus+eng")
     # delete img
     return pytesseract.image_to_string(img, lang="rus+eng")
