@@ -1,6 +1,6 @@
 from aiogram import F, Router, types
 from aiogram.filters import Command
-from aiogram.types import Message, CallbackQuery, ReplyKeyboardRemove
+from aiogram.types import Message, CallbackQuery
 import json
 import re
 import logging
@@ -12,17 +12,10 @@ import json_repair
 
 from aiogram import flags
 from aiogram.fsm.context import FSMContext
-from aiogram.utils.keyboard import ReplyKeyboardBuilder, InlineKeyboardBuilder
-from aiogram.types import (
-    InlineKeyboardButton,
-    InlineKeyboardMarkup,
-    KeyboardButton,
-    ReplyKeyboardMarkup,
-    ReplyKeyboardRemove,
-)
 import os
 import ocr
-from aiogram.types import ContentType
+from aiogram.types import ContentType, FSInputFile
+
 
 # import utils
 from states import Gen
@@ -262,6 +255,14 @@ async def handle_files(msg: Message, state: FSMContext, bot):
         json_dict = json_repair.loads(json_text)
         json_text = json_repair.repair_json(json_text, return_objects=True)
         json_text = json.dumps(json_text, ensure_ascii=False, indent=4)
+        # save json to file
+        with open(
+            f"docs/{file_name}_{msg.from_user.id}.json", "w", encoding="utf-8"
+        ) as f:
+            json.dump(json_dict, f, ensure_ascii=False, indent=4)
+        # send json file to user
+        json_from_pc = FSInputFile(f"docs/{file_name}_{msg.from_user.id}.json")
+        await msg.reply_document(json_from_pc, reply_markup=kb.menu_kb)
         # send json to user
         print(f"JSON FROM JSONREPAIR:\n\n{json_text}")
         await msg.reply(
@@ -307,6 +308,13 @@ async def handle_files(msg: Message, state: FSMContext, bot):
             diff = json_repair.repair_json(diff_json, return_objects=True)
             diff = json.dumps(diff, ensure_ascii=False, indent=4)
             diff_dict = json_repair.loads(diff)
+            with open(
+                f"docs/diffjson_{msg.from_user.id}.json", "w", encoding="utf-8"
+            ) as f:
+                json.dump(diff_dict, f, ensure_ascii=False, indent=4)
+            # send json file to user
+            json_from_pc = FSInputFile(f"docs/diffjson_{msg.from_user.id}.json")
+            await msg.reply_document(json_from_pc, reply_markup=kb.menu_kb)
             await msg.reply(
                 f"```json\n{diff}\n```",
                 parse_mode="Markdown",
