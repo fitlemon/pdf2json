@@ -12,6 +12,7 @@ RUN pip install --user -r requirements.txt
 RUN pip install Spire.Pdf
 RUN pip install tabulate 
 RUN pip install json_repair
+RUN mkdir docs
 ENV BOT_TOKEN=YOUR_TOKEN
 ENV GIGA_TOKEN=YOUR_TOKEN
 ENV HUGGINGFACEHUB_API_TOKEN=YOUR_TOKEN

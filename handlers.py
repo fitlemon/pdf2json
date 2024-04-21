@@ -258,11 +258,12 @@ async def handle_files(msg: Message, state: FSMContext, bot):
         # send text to llm
         item_type = utils.item_type
         json_text = await utils.pdf2json_llm(text, item_type, llm)
+        print(f"JSON FROM LLM:\n\n{json_text}")
         json_dict = json_repair.loads(json_text)
         json_text = json_repair.repair_json(json_text, return_objects=True)
         json_text = json.dumps(json_text, ensure_ascii=False, indent=4)
         # send json to user
-        print(json_text)
+        print(f"JSON FROM JSONREPAIR:\n\n{json_text}")
         await msg.reply(
             "```json\n" + json_text + "\n```",
             parse_mode="Markdown",
