@@ -256,12 +256,10 @@ async def handle_files(msg: Message, state: FSMContext, bot):
         json_text = json_repair.repair_json(json_text, return_objects=True)
         json_text = json.dumps(json_text, ensure_ascii=False, indent=4)
         # save json to file
-        with open(
-            f"docs/{file_name}_{msg.from_user.id}.json", "w", encoding="utf-8"
-        ) as f:
+        with open(f"docs/jsonfile_{msg.from_user.id}.json", "w", encoding="utf-8") as f:
             json.dump(json_dict, f, ensure_ascii=False, indent=4)
         # send json file to user
-        json_from_pc = FSInputFile(f"docs/{file_name}_{msg.from_user.id}.json")
+        json_from_pc = FSInputFile(f"docs/jsonfile_{msg.from_user.id}.json")
         await msg.reply_document(json_from_pc, reply_markup=kb.menu_kb)
         # send json to user
         print(f"JSON FROM JSONREPAIR:\n\n{json_text}")

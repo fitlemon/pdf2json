@@ -6,7 +6,8 @@ COPY . /usr/src/app/
 # install dependencies
 RUN apt update -y
 RUN apt-get update && apt-get install ffmpeg libsm6 libxext6  -y
-RUN apt install tesseract-ocr-all -y
+RUN apt install tesseract-ocr-rus -y
+RUN apt install tesseract-ocr-eng -y
 RUN pip install --user --upgrade pip
 RUN pip install --user -r requirements.txt
 RUN pip install Spire.Pdf
