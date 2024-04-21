@@ -11,9 +11,15 @@ from aiogram.types import (
 main_kb = [
     [
         InlineKeyboardButton(
-            text="📃 Отправить паспорт изделия", callback_data="sending_files"
+            text="🔎Спарсить паспорт изделия", callback_data="sending_files"
         )
     ],
+    [
+        InlineKeyboardButton(
+            text="↔️ Сравнить два паспорта", callback_data="compare_docs"
+        )
+    ],
+    [InlineKeyboardButton(text="💬 Чат с документом", callback_data="chat_pdf")],
     [InlineKeyboardButton(text="💡 Инфо о боте", callback_data="bot_info")],
 ]
 main_kb = InlineKeyboardMarkup(inline_keyboard=main_kb)
@@ -21,7 +27,7 @@ main_kb = InlineKeyboardMarkup(inline_keyboard=main_kb)
 
 sending_files_kb = [
     [InlineKeyboardButton(text="🔩 Выбрать тип изделия", callback_data="types_pick")],
-    [InlineKeyboardButton(text="📄 Спарсить весь документ", callback_data="parse_all")],
+    [InlineKeyboardButton(text="📃Спарсить весь документ", callback_data="parse_all")],
 ]
 
 sending_files_kb = InlineKeyboardMarkup(inline_keyboard=sending_files_kb)
@@ -43,8 +49,8 @@ types_kb = [
         )
     ],
     [
-        InlineKeyboardButton(text="🔙 Назад", callback_data="sending_files"),
-        InlineKeyboardButton(text="🔚 Главное меню", callback_data="main_menu"),
+        InlineKeyboardButton(text="🔙 Назад", callback_data="main_menu"),
+        InlineKeyboardButton(text="🏠 Главное меню", callback_data="main_menu"),
     ],
 ]
 
@@ -53,9 +59,24 @@ types_kb = InlineKeyboardMarkup(inline_keyboard=types_kb, resize_keyboard=True)
 
 menu_kb = [
     [
-        InlineKeyboardButton(text="🔙 Назад", callback_data="sending_files"),
-        InlineKeyboardButton(text="🔚 Главное меню", callback_data="main_menu"),
+        InlineKeyboardButton(text="🔙 Назад", callback_data="main_menu"),
+        InlineKeyboardButton(text="🏠 Главное меню", callback_data="main_menu"),
     ]
 ]
 
 menu_kb = InlineKeyboardMarkup(inline_keyboard=menu_kb)
+
+
+compare_menu_kb = [
+    [
+        InlineKeyboardButton(
+            text="🔄 Сгенерировать заново", callback_data="compare_again"
+        )
+    ],
+    [
+        InlineKeyboardButton(text="🔙 Назад", callback_data="main_menu"),
+        InlineKeyboardButton(text="🏠 Главное меню", callback_data="main_menu"),
+    ],
+]
+
+compare_menu_kb = InlineKeyboardMarkup(inline_keyboard=compare_menu_kb)
