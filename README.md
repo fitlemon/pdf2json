@@ -49,3 +49,27 @@ OCR библиотек
 1. Собирает технические характеристики изделия и предоставляет их в формате JSON.
 2. Выполняет поиск информации в документе по запросу пользователя.
 3. Принимает на вход документы двух изделий, сравнивает технические характеристики обоих изделий в удобной для пользователя форме таблицы.
+
+
+## Запуск системы:
+
+Вариант №1 
+- Скачать образ контейнера (https://disk.yandex.ru/d/wP2pX5B7WvvAgA)
+- Восстановление образа контейнера 
+```bash
+docker load -i  bot-image_v10.tar
+```
+- Запуск контейнера
+```bash
+docker run -it --name gpnbot -e BOT_TOKEN=xxx  -e GIGA_TOKEN=xxx -e HUGGINGFACEHUB_API_TOKEN=xxx  gpn_bot:v10
+```
+
+Вариант №2:
+- Создать образ контейнера
+```bash
+docker build  -t gpn_bot:v10
+```
+- Запуск контейнера
+```bash
+docker run -it --name gpnbot -e BOT_TOKEN=xxx  -e GIGA_TOKEN=xxx -e HUGGINGFACEHUB_API_TOKEN=xxx  gpn_bot:v10
+```
