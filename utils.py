@@ -93,7 +93,9 @@ def get_llm_chat():
     """
     Create a chat with LLM
     """
-    llm = GigaChat(credentials=env.str("GIGA_TOKEN"), verify_ssl_certs=False)
+    # llm = GigaChat(credentials=env.str("GIGA_TOKEN"), verify_ssl_certs=False)
+    # Open ai llm
+    llm = ChatOpenAI(api_key=env.str("OPENAI_API_KEY"))
     return llm
 
 
@@ -103,7 +105,12 @@ async def pdf2json_llm(text, item_type, llm):
     """
     print(text[:1000])
     if item_type == "unknown_device":
-        input_query = f"Тебе дан текст с техническими характеристиками изделия. Сформируй из него json file, максимально описывающий технические характеристики изделия. Не переводи слова на английский. Делай структуру json не вложенной."
+        input_query = f"""Ты профессиональный frontend-разработчик. 
+Контекст: Я отправлю тебе технический паспорт изделия. 
+Твоя задача: найти в техническом паспорте основные технические характеристики изделия и их значения.
+Формат: выведи ответ в формате json. Все ключи и значения пиши только на русском языке.
+Вот технический паспорт:
+{text}"""
     # input_query = f'Из документа каждую характеристику отдельно: Технические характеристики {class_name}'
     else:
         input_query = (
@@ -117,31 +124,44 @@ async def pdf2json_llm(text, item_type, llm):
     return answer.content
 
 
-async def compare_jsons(json1, json2, llm):
+async def compare_docs(text1, text2, llm):
     """
     Compare two jsons
     """
-    system_query = """Сравни и выпиши отличия Значений в виде json в формате: {"параметры для сравнения": [названия параметров в виде python list], "json1": [значения параметров в json1 в виде python list], "json2": [значения параметров в json2 в виде python list]}:"""
-    json_query = f'{{"json1": {json1}, "json2": {json2}}}'
+    system_query = f"""Ты профессиональный технический писатель. 
+Контекст: Я отправлю тебе два технических паспорта. 
+Твоя задача: найти в каждом техническом паспорте основные технические характеристики изделия и их значения, сравнить найденные характеристики между собой и выписать результат в виде сравнительной таблицы.
+Формат: выведи ответ в виде таблицы markdown. Ограничения: в таблице указаны только отличающиеся параметры.
+"""
+    user_query = f"""
+Вот первый паспорт:
+{text1}
+Вот второй паспорт:
+{text2}
+"""
     messages = [
         SystemMessage(content=system_query),
-        HumanMessage(content=json_query),
+        HumanMessage(content=user_query),
     ]
     answer = await llm.ainvoke(messages)
     return answer.content
 
 
-async def compare_jsons_conclusion(json1, json2, llm):
+async def compare_docs_conclusion(text1, text2, llm):
     """
     Compare two jsons
     """
-    system_query = (
-        """Сравни два json файла и напиши, в чем их различия в выводах по пунктам."""
-    )
-    json_query = f'{{"json1": {json1}, "json2": {json2}}}'
+    query = f"""Ты профессиональный технический писатель. 
+Контекст: Я отправлю тебе два технических паспорта. 
+Твоя задача: найти в каждом техническом паспорте основные технические характеристики изделия и их значения, сравнить найденные характеристики между собой и выписать результат в виде короткого вывода.
+Формат: выведи ответ в виде текстового вывода. Коротко и емко опиши, по каким характеристикам изделия отличаются друг от друга. Выписывай только различия. Стиль речи сухой, технический.
+Вот первый паспорт:
+{text1}
+Вот второй паспорт:
+{text2}
+"""
     messages = [
-        SystemMessage(content=system_query),
-        HumanMessage(content=json_query),
+        HumanMessage(content=query),
     ]
     answer = await llm.ainvoke(messages)
     return answer.content

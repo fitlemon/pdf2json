@@ -43,11 +43,7 @@ types_kb = [
     ],
     [InlineKeyboardButton(text="🛀Указатель уровня", callback_data="level_indicator")],
     [InlineKeyboardButton(text="🛁Сигнализатор уровня", callback_data="level_switch")],
-    [
-        InlineKeyboardButton(
-            text="❓Неизвестное устройство", callback_data="unknown_device"
-        )
-    ],
+    [InlineKeyboardButton(text="❓Я не знаю тип", callback_data="unknown_device")],
     [
         InlineKeyboardButton(text="🔙 Назад", callback_data="main_menu"),
         InlineKeyboardButton(text="🏠 Главное меню", callback_data="main_menu"),
@@ -68,11 +64,6 @@ menu_kb = InlineKeyboardMarkup(inline_keyboard=menu_kb)
 
 
 compare_menu_kb = [
-    [
-        InlineKeyboardButton(
-            text="🔄 Сгенерировать заново", callback_data="compare_again"
-        )
-    ],
     [
         InlineKeyboardButton(text="🔙 Назад", callback_data="main_menu"),
         InlineKeyboardButton(text="🏠 Главное меню", callback_data="main_menu"),

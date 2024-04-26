@@ -9,6 +9,8 @@ import kb
 import texts
 import utils
 import json_repair
+import markdown
+import pandas as pd
 
 from aiogram import flags
 from aiogram.fsm.context import FSMContext
@@ -52,14 +54,6 @@ async def events_by_spec_genre(clbck: CallbackQuery, state: FSMContext):
     Bot actions for sending_files
     """
     await state.set_state(Gen.wait_doc)
-    await clbck.message.answer(texts.sending_files, reply_markup=kb.sending_files_kb)
-
-
-@router.callback_query(F.data.contains("types_pick"))
-async def events_by_spec_genre(clbck: CallbackQuery, state: FSMContext):
-    """
-    Bot actions for types_pick
-    """
     await clbck.message.answer(texts.types_pick, reply_markup=kb.types_kb)
 
 
@@ -212,7 +206,6 @@ async def handle_files(msg: Message, state: FSMContext, bot):
                         "Файл принят. Это PDF с распознанным текстом. Пожалуйста, подождите ответа нейронной сети ✨...",
                         reply_markup=kb.menu_kb,
                     )
-                    text = text
             elif file_name.endswith(".jpg") or file_name.endswith(".png"):
                 print("its IMG not recognized")
                 await msg.reply(
@@ -247,38 +240,41 @@ async def handle_files(msg: Message, state: FSMContext, bot):
             await msg.reply(texts.wait_chat_pdf, reply_markup=kb.menu_kb)
             await state.set_state(Gen.wait_chat_pdf)
             return None
-        llm = utils.get_llm_chat()
-        # send text to llm
-        item_type = utils.item_type
-        json_text = await utils.pdf2json_llm(text, item_type, llm)
-        print(f"JSON FROM LLM:\n\n{json_text}")
-        json_dict = json_repair.loads(json_text)
-        json_text = json_repair.repair_json(json_text, return_objects=True)
-        json_text = json.dumps(json_text, ensure_ascii=False, indent=4)
-        # save json to file
-        with open(f"docs/jsonfile_{msg.from_user.id}.json", "w", encoding="utf-8") as f:
-            json.dump(json_dict, f, ensure_ascii=False, indent=4)
-        # send json file to user
-        json_from_pc = FSInputFile(f"docs/jsonfile_{msg.from_user.id}.json")
-        await msg.reply_document(json_from_pc, reply_markup=kb.menu_kb)
-        # send json to user
-        print(f"JSON FROM JSONREPAIR:\n\n{json_text}")
-        await msg.reply(
-            "```json\n" + json_text + "\n```",
-            parse_mode="Markdown",
-            reply_markup=kb.menu_kb,
-        )
-        if utils.item_type != "unknown_device":
-            json_table = tabulate.tabulate(json_dict.items(), tablefmt="grid")
+        if state_ == Gen.wait_doc:
+            llm = utils.get_llm_chat()
+            # send text to llm
+            item_type = utils.item_type
+            json_text = await utils.pdf2json_llm(text, item_type, llm)
+            print(f"JSON FROM LLM:\n\n{json_text}")
+            json_dict = json_repair.loads(json_text)
+            json_text = json_repair.repair_json(json_text, return_objects=True)
+            json_text = json.dumps(json_text, ensure_ascii=False, indent=4)
+            # save json to file
+            with open(
+                f"docs/jsonfile_{msg.from_user.id}.json", "w", encoding="utf-8"
+            ) as f:
+                json.dump(json_dict, f, ensure_ascii=False, indent=4)
+            # send json file to user
+            json_from_pc = FSInputFile(f"docs/jsonfile_{msg.from_user.id}.json")
+            await msg.reply_document(json_from_pc, reply_markup=kb.menu_kb)
+            # send json to user
+            print(f"JSON FROM JSONREPAIR:\n\n{json_text}")
             await msg.reply(
-                f"```markdown\n{json_table}\n```",
+                "```json\n" + json_text + "\n```",
                 parse_mode="Markdown",
                 reply_markup=kb.menu_kb,
             )
+            if utils.item_type != "unknown_device":
+                json_table = tabulate.tabulate(json_dict.items(), tablefmt="grid")
+                await msg.reply(
+                    f"```markdown\n{json_table}\n```",
+                    parse_mode="Markdown",
+                    reply_markup=kb.menu_kb,
+                )
 
         if state_ == Gen.compare_docs:
-            with open(f"docs/{msg.from_user.id}_1.json", "w", encoding="utf-8") as f:
-                json.dump(json_dict, f, ensure_ascii=False, indent=4)
+            with open(f"docs/{msg.from_user.id}_1.txt", "w", encoding="utf-8") as f:
+                f.write(text)
             await msg.reply(
                 texts.wait_2nd_doc,
                 reply_markup=kb.menu_kb,
@@ -286,42 +282,34 @@ async def handle_files(msg: Message, state: FSMContext, bot):
             await state.set_state(Gen.wait_2nd_doc)
 
         elif state_ == Gen.wait_2nd_doc:
-            with open(f"docs/{msg.from_user.id}_2.json", "w", encoding="utf-8") as f:
-                json.dump(json_dict, f, ensure_ascii=False, indent=4)
+            with open(f"docs/{msg.from_user.id}_2.txt", "w", encoding="utf-8") as f:
+                f.write(text)
             await msg.reply(
                 texts.wait_to_compare,
                 reply_markup=kb.menu_kb,
             )
-
             # compare jsons
-            with open(f"docs/{msg.from_user.id}_1.json", "r", encoding="utf-8") as f:
-                json1 = json.load(f)
-            with open(f"docs/{msg.from_user.id}_2.json", "r", encoding="utf-8") as f:
-                json2 = json.load(f)
-            diff_json = await utils.compare_jsons(str(json1), str(json2), llm)
-            conclusion = await utils.compare_jsons_conclusion(
-                str(json1), str(json2), llm
-            )
-            # read diff json
-            diff = json_repair.repair_json(diff_json, return_objects=True)
-            diff = json.dumps(diff, ensure_ascii=False, indent=4)
-            diff_dict = json_repair.loads(diff)
-            with open(
-                f"docs/diffjson_{msg.from_user.id}.json", "w", encoding="utf-8"
-            ) as f:
-                json.dump(diff_dict, f, ensure_ascii=False, indent=4)
-            # send json file to user
-            json_from_pc = FSInputFile(f"docs/diffjson_{msg.from_user.id}.json")
-            await msg.reply_document(json_from_pc, reply_markup=kb.menu_kb)
-            await msg.reply(
-                f"```json\n{diff}\n```",
-                parse_mode="Markdown",
-                reply_markup=kb.menu_kb,
-            )
-            diff_table = tabulate.tabulate(diff_dict, headers="keys", tablefmt="grid")
+            with open(f"docs/{msg.from_user.id}_1.txt", "r", encoding="utf-8") as f:
+                text1 = f.read()
+            with open(f"docs/{msg.from_user.id}_2.txt", "r", encoding="utf-8") as f:
+                text2 = f.read()
+            llm = utils.get_llm_chat()
+            diff_table = await utils.compare_docs(text1, text2, llm)
             print(diff_table)
+            table_start = diff_table.find("|")
+            table_end = diff_table.rfind("|")
+            diff_table = diff_table[table_start : table_end + 1]
+            table_html = markdown.markdown(
+                diff_table, extensions=["markdown.extensions.tables"]
+            )
+            table_df = pd.read_html(table_html)[0]
+
+            final_table = tabulate.tabulate(table_df, tablefmt="grid")
+
+            conclusion = await utils.compare_docs_conclusion(text1, text2, llm)
+            # read diff json
             await msg.reply(
-                f"```markdown\n{diff_table}\n```",
+                f"```markdown\n{final_table}\n```",
                 parse_mode="Markdown",
                 reply_markup=kb.compare_menu_kb,
             )
@@ -349,40 +337,40 @@ async def compare_docs(clbck: CallbackQuery, state: FSMContext):
     await clbck.message.answer(texts.types_pick, reply_markup=kb.types_kb)
 
 
-@router.callback_query(F.data.contains("compare_again"))
-async def events_by_spec_genre(clbck: CallbackQuery, state: FSMContext):
-    """
-    Bot actions for compare_again
-    """
-    llm = utils.get_llm_chat()
-    print(f"clbck.message.chat.id: {clbck.message.chat.id}")
-    with open(f"docs/{clbck.message.chat.id}_1.json", "r", encoding="utf-8") as f:
-        json1 = json.load(f)
-    with open(f"docs/{clbck.message.chat.id}_2.json", "r", encoding="utf-8") as f:
-        json2 = json.load(f)
-    diff_json = await utils.compare_jsons(str(json1), str(json2), llm)
-    conclusion = await utils.compare_jsons_conclusion(str(json1), str(json2), llm)
-    # read diff json
-    diff = json_repair.repair_json(diff_json, return_objects=True)
-    diff = json.dumps(diff, ensure_ascii=False, indent=4)
-    diff_dict = json_repair.loads(diff)
-    await clbck.message.reply(
-        f"```json\n{diff}\n```",
-        parse_mode="Markdown",
-        reply_markup=kb.menu_kb,
-    )
-    diff_table = tabulate.tabulate(diff_dict, headers="keys", tablefmt="grid")
-    print(diff_table)
-    await clbck.message.reply(
-        f"```markdown\n{diff_table}\n```",
-        parse_mode="Markdown",
-        reply_markup=kb.compare_menu_kb,
-    )
-    await clbck.message.reply(
-        f"```\n{conclusion}\n```",
-        parse_mode="Markdown",
-        reply_markup=kb.compare_menu_kb,
-    )
+# @router.callback_query(F.data.contains("compare_again"))
+# async def compare_again(clbck: CallbackQuery, state: FSMContext):
+#     """
+#     Bot actions for compare_again
+#     """
+#     llm = utils.get_llm_chat()
+#     print(f"clbck.message.chat.id: {clbck.message.chat.id}")
+#     with open(f"docs/{clbck.message.chat.id}_1.json", "r", encoding="utf-8") as f:
+#         json1 = json.load(f)
+#     with open(f"docs/{clbck.message.chat.id}_2.json", "r", encoding="utf-8") as f:
+#         json2 = json.load(f)
+#     diff_json = await utils.compare_(str(json1), str(json2), llm)
+#     conclusion = await utils.compare_jsons_conclusion(str(json1), str(json2), llm)
+#     # read diff json
+#     diff = json_repair.repair_json(diff_json, return_objects=True)
+#     diff = json.dumps(diff, ensure_ascii=False, indent=4)
+#     diff_dict = json_repair.loads(diff)
+#     await clbck.message.reply(
+#         f"```json\n{diff}\n```",
+#         parse_mode="Markdown",
+#         reply_markup=kb.menu_kb,
+#     )
+#     diff_table = tabulate.tabulate(diff_dict, headers="keys", tablefmt="grid")
+#     print(diff_table)
+#     await clbck.message.reply(
+#         f"```markdown\n{diff_table}\n```",
+#         parse_mode="Markdown",
+#         reply_markup=kb.compare_menu_kb,
+#     )
+#     await clbck.message.reply(
+#         f"```\n{conclusion}\n```",
+#         parse_mode="Markdown",
+#         reply_markup=kb.compare_menu_kb,
+#     )
 
 
 @router.callback_query(F.data.contains("chat_pdf"))
