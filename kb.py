@@ -65,6 +65,10 @@ menu_kb = InlineKeyboardMarkup(inline_keyboard=menu_kb)
 
 compare_menu_kb = [
     [
+        InlineKeyboardButton(text="📅 Скачать в Excel", callback_data="download_xls"),
+        InlineKeyboardButton(text="〰️ Скачать в Json", callback_data="download_json"),
+    ],
+    [
         InlineKeyboardButton(text="🔙 Назад", callback_data="main_menu"),
         InlineKeyboardButton(text="🏠 Главное меню", callback_data="main_menu"),
     ],

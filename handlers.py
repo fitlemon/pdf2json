@@ -12,6 +12,7 @@ import json_repair
 import markdown
 import pandas as pd
 
+import dataframe_image as dfi
 from aiogram import flags
 from aiogram.fsm.context import FSMContext
 import os
@@ -191,7 +192,7 @@ async def handle_files(msg: Message, state: FSMContext, bot):
             # check if file is pdf
             if file_name.endswith(".pdf"):
                 text = utils.extract_text_from_pdf(file_name)
-                if len(text) < 100:
+                if len(text) < 2000:
                     await msg.reply(
                         "Файл принят. Это PDF с НЕраспознанным текстом. Попробуем распознать текст с помощью магии 🎇. Пожалуйста, подождите ответа нейронной сети ✨...Если текст не распознается, попробуйте отправить фото документа в формате jpg, png...Например, сделав скриншот.",
                         reply_markup=kb.menu_kb,
@@ -200,7 +201,7 @@ async def handle_files(msg: Message, state: FSMContext, bot):
                     imgs = ocr.pdf_to_img(file_name)
                     text = ""
                     for img in imgs:
-                        text += ocr.img_to_text(img, utils.tes_path)
+                        text += ocr.detect_text(img)
                 else:
                     await msg.reply(
                         "Файл принят. Это PDF с распознанным текстом. Пожалуйста, подождите ответа нейронной сети ✨...",
@@ -212,7 +213,7 @@ async def handle_files(msg: Message, state: FSMContext, bot):
                     "Файл принят. Это картинка с НЕраспознанным текстом. Попробуем распознать текст с помощью магии 🎇. Пожалуйста, подождите ответа нейронной сети ✨...",
                     reply_markup=kb.menu_kb,
                 )
-                text = ocr.img_to_text(file_name, utils.tes_path)
+                text = ocr.detect_text(file_name)
             else:
                 await msg.reply(
                     "Я принимаю только магические документы c текстом в формате pdf, jpg, png...",
@@ -227,7 +228,7 @@ async def handle_files(msg: Message, state: FSMContext, bot):
                 "Файл принят. Это картинка с НЕраспознанным текстом. Попробуем распознать текст с помощью магии 🎇. Пожалуйста, подождите ответа нейронной сети ✨...",
                 reply_markup=kb.menu_kb,
             )
-            text = ocr.img_to_text(file_name, utils.tes_path)
+            text = ocr.detect_text(file_name)
         else:
             await msg.reply(
                 "Я принимаю только магические документы в формате pdf, jpg, png....",
@@ -236,6 +237,9 @@ async def handle_files(msg: Message, state: FSMContext, bot):
             return None
         if state_ == Gen.chat_pdf:
             chunks = await utils.get_text_chunks(text)
+            await msg.reply(
+                "Текст распознан. Подождите пока текст загрузится в векторную базу...⌚"
+            )
             vectorstore = await utils.get_vectorstore(chunks, str(msg.from_user.id))
             await msg.reply(texts.wait_chat_pdf, reply_markup=kb.menu_kb)
             await state.set_state(Gen.wait_chat_pdf)
@@ -250,6 +254,9 @@ async def handle_files(msg: Message, state: FSMContext, bot):
             json_text = json_repair.repair_json(json_text, return_objects=True)
             json_text = json.dumps(json_text, ensure_ascii=False, indent=4)
             # save json to file
+            # convert str json to dict
+            # json_text = json_text.strip().lstrip("```json").rstrip("```").strip()
+            # json_dict = eval(json_text)
             with open(
                 f"docs/jsonfile_{msg.from_user.id}.json", "w", encoding="utf-8"
             ) as f:
@@ -294,29 +301,37 @@ async def handle_files(msg: Message, state: FSMContext, bot):
             with open(f"docs/{msg.from_user.id}_2.txt", "r", encoding="utf-8") as f:
                 text2 = f.read()
             llm = utils.get_llm_chat()
-            diff_table = await utils.compare_docs(text1, text2, llm)
-            print(diff_table)
-            table_start = diff_table.find("|")
-            table_end = diff_table.rfind("|")
-            diff_table = diff_table[table_start : table_end + 1]
+            llm_answer = await utils.compare_docs(text1, text2, llm)
+            print(llm_answer)
+            table_start = llm_answer.find("|")
+            table_end = llm_answer.rfind("|")
+            diff_table = llm_answer[table_start : table_end + 1]
+            conclusion = llm_answer[table_end + 1 :]
             table_html = markdown.markdown(
                 diff_table, extensions=["markdown.extensions.tables"]
             )
             table_df = pd.read_html(table_html)[0]
+            # table_df = table_df.style.background_gradient()
+            png_file_name = f"docs/{msg.from_user.id}_compare.png"
+            dfi.export(table_df, png_file_name)
+            png_from_pc = FSInputFile(png_file_name)
+            table_df.to_excel(f"docs/{msg.from_user.id}_compare.xlsx")
+            table_df.to_json(f"docs/{msg.from_user.id}_compare.json")
+            await msg.reply_photo(png_from_pc, reply_markup=kb.compare_menu_kb)
 
-            final_table = tabulate.tabulate(table_df, tablefmt="grid")
+            # final_table = tabulate.tabulate(table_df, tablefmt="grid")
 
-            conclusion = await utils.compare_docs_conclusion(text1, text2, llm)
+            # conclusion = await utils.compare_docs_conclusion(text1, text2, llm)
             # read diff json
-            await msg.reply(
-                f"```markdown\n{final_table}\n```",
-                parse_mode="Markdown",
-                reply_markup=kb.compare_menu_kb,
-            )
+            # await msg.reply(
+            #     f"```markdown\n{final_table}\n```",
+            #     parse_mode="Markdown",
+            #     reply_markup=kb.compare_menu_kb,
+            # )
             await msg.reply(
                 f"```\n{conclusion}\n```",
                 parse_mode="Markdown",
-                reply_markup=kb.compare_menu_kb,
+                reply_markup=kb.menu_kb,
             )
 
 
@@ -404,3 +419,22 @@ async def handle_text_messages(msg: Message, state: FSMContext, bot):
             "Выберите сначала раздел....",
             reply_markup=kb.menu_kb,
         )
+
+
+@router.callback_query(F.data.contains("download_json"))
+async def download_json(clbck: CallbackQuery, state: FSMContext):
+    """
+    Bot actions for download_json
+    """
+    # await clbck.message.answer("Скачивание JSON файла...", reply_markup=kb.menu_kb)
+    json_from_pc = FSInputFile(f"docs/{clbck.message.chat.id}_compare.json")
+    await clbck.message.reply_document(json_from_pc, reply_markup=kb.menu_kb)
+
+
+@router.callback_query(F.data.contains("download_xls"))
+async def download_xls(clbck: CallbackQuery, state: FSMContext):
+    """
+    Bot actions for download_xls
+    """
+    xlsx_from_pc = FSInputFile(f"docs/{clbck.message.chat.id}_compare.xlsx")
+    await clbck.message.reply_document(xlsx_from_pc, reply_markup=kb.menu_kb)

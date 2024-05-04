@@ -11,6 +11,7 @@ from langchain.chains import ConversationalRetrievalChain
 from langchain_openai import ChatOpenAI
 from langchain.memory import ConversationBufferMemory
 from langchain_community.embeddings import HuggingFaceInferenceAPIEmbeddings
+from langchain_community.llms import HuggingFaceHub
 
 env = Env()
 env.read_env()  #'../.env', recurse=False)
@@ -95,6 +96,17 @@ def get_llm_chat():
     """
     # llm = GigaChat(credentials=env.str("GIGA_TOKEN"), verify_ssl_certs=False)
     # Open ai llm
+    # llm = HuggingFaceHub(
+    #     repo_id="IlyaGusev/saiga_llama3_8b",
+    #     task="text-generation",
+    #     model_kwargs={
+    #         "max_new_tokens": 1024,
+    #         "top_k": 30,
+    #         "temperature": 0.1,
+    #         "repetition_penalty": 1.03,
+    #     },
+    #     huggingfacehub_api_token=env.str("HUGGINGFACEHUB_API_TOKEN"),
+    # )
     llm = ChatOpenAI(api_key=env.str("OPENAI_API_KEY"))
     return llm
 
@@ -108,7 +120,10 @@ async def pdf2json_llm(text, item_type, llm):
         input_query = f"""Ты профессиональный frontend-разработчик. 
 Контекст: Я отправлю тебе технический паспорт изделия. 
 Твоя задача: найти в техническом паспорте основные технические характеристики изделия и их значения.
-Формат: выведи ответ в формате json. Все ключи и значения пиши только на русском языке.
+Формат: 
+1) выведи ответ в формате json. 
+2) Все ключи и значения пиши только на русском языке. Названия параметров содержат единицы измерения. 
+3)Все значения параметров обернуты в кавычки, даже числовые, например: "100", "200-300" и т.д.
 Вот технический паспорт:
 {text}"""
     # input_query = f'Из документа каждую характеристику отдельно: Технические характеристики {class_name}'
@@ -131,7 +146,14 @@ async def compare_docs(text1, text2, llm):
     system_query = f"""Ты профессиональный технический писатель. 
 Контекст: Я отправлю тебе два технических паспорта. 
 Твоя задача: найти в каждом техническом паспорте основные технические характеристики изделия и их значения, сравнить найденные характеристики между собой и выписать результат в виде сравнительной таблицы.
-Формат: выведи ответ в виде таблицы markdown. Ограничения: в таблице указаны только отличающиеся параметры.
+Формат: выведи ответ в виде таблицы markdown. После таблицы коротко и емко опиши, по каким характеристикам изделия отличаются друг от друга. Выписывай только различия. Стиль речи сухой, технический. Пиши только на русском языке.
+Важные замечания: 
+1) переведи все параметры в одинаковую систему измерения, если это необходимо. 
+2) Все значения в таблице выдели кавычками, например:
+| Характеристика                  | Паспорт 1               | Паспорт 2               |
+|----------------------------------|-------------------------|-------------------------|
+| Мощность двигателя, л.с.         | "59,0"                   | "не менее 40"             |
+3) Исключи из сравнения параметры, которые не влияют на работу устройства или которые одинаковы в жвух паспортах. Не забудь про единицы измерения. Проверь свой ответ. За хорошую и точную работу тебя ждет бонус.
 """
     user_query = f"""
 Вот первый паспорт:
@@ -187,8 +209,8 @@ async def get_vectorstore(text_chunks, user_id):
 
 
 async def get_conversation_chain(vectorstore):
-    # llm = ChatOpenAI(api_key=env.str("OPENAI_API_KEY"))
-    llm = GigaChat(credentials=env.str("GIGA_TOKEN"), verify_ssl_certs=False)
+    llm = ChatOpenAI(api_key=env.str("OPENAI_API_KEY"))
+    # llm = GigaChat(credentials=env.str("GIGA_TOKEN"), verify_ssl_certs=False)
     # llm = HuggingFaceHub(
     #     repo_id="google/flan-t5-xxl",
     #     model_kwargs={"temperature": 0.5, "max_length": 512},
